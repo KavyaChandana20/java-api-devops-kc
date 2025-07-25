@@ -5,7 +5,7 @@ pipeline {
         DOCKER_IMAGE = "spring-petclinic-api"
         DOCKER_TAG = "latest"
         AWS_REGION = "us-east-1"
-        CLUSTER_NAME = "java-cluster-api"
+        CLUSTER_NAME = "java-api-cluster"
         ACCOUNT_ID = "501257812344"
         ECR_URI = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${DOCKER_IMAGE}"
     }
