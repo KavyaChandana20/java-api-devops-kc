@@ -1,0 +1,73 @@
+pipeline {
+    agent any
+
+    environment {
+        DOCKER_IMAGE = "spring-petclinic-api"
+        DOCKER_TAG = "latest"
+        AWS_REGION = "us-east-1"
+        CLUSTER_NAME = "java-cluster-api"
+        ACCOUNT_ID = "501257812344"
+        ECR_URI = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${DOCKER_IMAGE}"
+    }
+
+    stages {
+        stage('Checkout Code') {
+            steps {
+                echo 'Cloning Repository...'
+                git url: 'https://github.com/KavyaChandana20/java-api-devops-kc', branch: 'main'
+            }
+        }
+
+        stage('Build with Maven') {
+            steps {
+                echo 'Building with Maven...'
+                sh 'mvn clean install -DskipTests'
+            }
+        }
+
+        stage('Verify JAR File') {
+            steps {
+                echo 'Checking JAR file existence...'
+                sh 'ls -lh target/*.jar || (echo "❌ JAR file not found!" && exit 1)'
+            }
+        }
+
+        stage('Login to AWS ECR') {
+            steps {
+                echo 'Authenticating with AWS ECR...'
+                sh '''
+                    aws ecr get-login-password --region $AWS_REGION | \
+                    docker login --username AWS --password-stdin $ECR_URI
+                '''
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                echo 'Building Docker image...'
+                sh 'docker build -t $DOCKER_IMAGE:$DOCKER_TAG .'
+            }
+        }
+
+        stage('Tag & Push Docker Image to ECR') {
+            steps {
+                echo 'Tagging and pushing image to AWS ECR...'
+                sh '''
+                    docker tag $DOCKER_IMAGE:$DOCKER_TAG $ECR_URI:$DOCKER_TAG
+                    docker push $ECR_URI:$DOCKER_TAG
+                '''
+            }
+        }
+
+        stage('Deploy to EKS') {
+            steps {
+                echo 'Deploying to EKS...'
+                sh '''
+                    aws eks --region $AWS_REGION update-kubeconfig --name $CLUSTER_NAME
+                    kubectl apply -f k8s/
+                '''
+            }
+        }
+    }
+}
+
